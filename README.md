@@ -64,7 +64,8 @@ repositories are never touched.
 
 ```
 source/usr/local/emhttp/plugins/borg-backup/
-  Borg*.page          Unraid pages (BorgBackup.page = menu parent, others = tabs)
+  Backup.page         top-menu entry "Backup" (the file name is the menu label)
+  Borg*.page          the tabs shown under it
   include/lib.php     storage, borg/docker/compose helpers, cron
   include/api.php     JSON API used by the pages (POST + Unraid CSRF token)
   include/runner.php  CLI runner for jobs, tests and restores (cron + UI)

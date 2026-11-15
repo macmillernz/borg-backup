@@ -2,8 +2,8 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name       "borg-backup">
 <!ENTITY author     "macmillernz">
-<!ENTITY version    "2026.11.16c">
-<!ENTITY pkgMD5     "26f340aeb02ec09913b5e3ea53327eb3">
+<!ENTITY version    "2026.11.16d">
+<!ENTITY pkgMD5     "064c7faabef7b25fff05f42cc23d5c2a">
 <!ENTITY gitURL     "https://raw.githubusercontent.com/macmillernz/borg-backup/main">
 <!ENTITY pluginURL  "&gitURL;/&name;.plg">
 <!ENTITY plgPATH    "/boot/config/plugins/&name;">
@@ -15,13 +15,16 @@
 <PLUGIN name="&name;"
         author="&author;"
         version="&version;"
-        launch="BorgBackup"
+        launch="Backup"
         pluginURL="&pluginURL;"
         support="https://github.com/macmillernz/borg-backup/issues"
         icon="archive"
         min="6.12.0">
 
 <CHANGES>
+###2026.11.16d
+- The top-menu entry is now labelled exactly "Backup" (it showed "BorgBackup"); the page lives at /Backup.
+
 ###2026.11.16c
 - Borg Backup now has its own Backup tab in the top menu, right of Tools (moved from Settings > Utilities).
 
@@ -76,6 +79,8 @@ if [ "$(cat "$DIR/VERSION" 2>/dev/null)" != "&version;" ]; then
   echo "ERROR: plugin files could not be installed from $PKG"
   exit 1
 fi
+# the menu page was renamed in 2026.11.16d; remove the old one if the package manager left it
+rm -f "$DIR/BorgBackup.page"
 # install borg unless an identical binary is already there
 if ! cmp -s "$PLG/borg-&borgVER;" /usr/local/bin/borg 2>/dev/null; then
   install -m 0755 "$PLG/borg-&borgVER;" /usr/local/bin/borg
