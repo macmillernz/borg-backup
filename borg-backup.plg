@@ -2,8 +2,8 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name       "borg-backup">
 <!ENTITY author     "macmillernz">
-<!ENTITY version    "2026.11.15a">
-<!ENTITY pkgMD5     "235bda4f61239b95fb9ee7fe80dbdfdf">
+<!ENTITY version    "2026.11.16">
+<!ENTITY pkgMD5     "c5ff707985e743aff078f8412f51686e">
 <!ENTITY gitURL     "https://raw.githubusercontent.com/macmillernz/borg-backup/main">
 <!ENTITY pluginURL  "&gitURL;/&name;.plg">
 <!ENTITY plgPATH    "/boot/config/plugins/&name;">
@@ -22,6 +22,10 @@
         min="6.12.0">
 
 <CHANGES>
+###2026.11.16
+- Fix updates not replacing the plugin files (pages stayed blank after updating to 2026.11.15a).
+  The installer now verifies the installed version and extracts the package directly if needed.
+
 ###2026.11.15a
 - Fix blank pages on Unraid 7.4: API requests are now sent URL-encoded (multipart POSTs stalled).
 - Show an error message on the pages when the backend cannot be reached instead of staying blank.
@@ -48,6 +52,19 @@
 <INLINE>
 set -e
 PLG="&plgPATH;"
+DIR="/usr/local/emhttp/plugins/&name;"
+PKG="$PLG/&name;-&version;-x86_64-1.txz"
+# upgradepkg sometimes leaves the previous files in place on Unraid; the package
+# carries a VERSION file, so verify it and fall back to extracting directly.
+if [ "$(cat "$DIR/VERSION" 2>/dev/null)" != "&version;" ]; then
+  echo "Package manager did not update the plugin files - extracting the package directly."
+  rm -rf "$DIR"
+  tar -xJf "$PKG" -C /
+fi
+if [ "$(cat "$DIR/VERSION" 2>/dev/null)" != "&version;" ]; then
+  echo "ERROR: plugin files could not be installed from $PKG"
+  exit 1
+fi
 # install borg unless an identical binary is already there
 if ! cmp -s "$PLG/borg-&borgVER;" /usr/local/bin/borg 2>/dev/null; then
   install -m 0755 "$PLG/borg-&borgVER;" /usr/local/bin/borg

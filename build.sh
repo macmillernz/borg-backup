@@ -19,6 +19,9 @@ find "$STAGE" -name '.claude' -type d -prune -exec rm -rf {} +
 find "$STAGE" -type d -exec chmod 755 {} +
 find "$STAGE" -type f -exec chmod 644 {} +
 chmod 755 "$STAGE/usr/local/emhttp/plugins/$NAME/include/runner.php"
+# the installer compares this with the .plg version to detect a failed upgradepkg
+printf '%s\n' "$VERSION" > "$STAGE/usr/local/emhttp/plugins/$NAME/VERSION"
+chmod 644 "$STAGE/usr/local/emhttp/plugins/$NAME/VERSION"
 
 rm -f "$OUT"
 if tar --version 2>/dev/null | grep -q bsdtar; then
