@@ -77,3 +77,4 @@ pre.bb-log{background:#111;color:#ddd;padding:10px 12px;border-radius:5px;max-he
 .bb-kv>div:nth-child(odd){color:var(--bb-muted)}
 .bb-toast{position:fixed;right:20px;bottom:20px;z-index:10001;padding:10px 16px;border-radius:6px;color:#fff;background:#333;box-shadow:0 4px 14px rgba(0,0,0,.3);max-width:420px;white-space:pre-wrap}
 .bb-toast.err{background:var(--bb-err,#d33c3c)}.bb-toast.ok{background:#2e9e4f}
+.bb-api-error{--bb-err:#d33c3c;--bb-soft:rgba(127,127,127,.08);border-left:4px solid #d33c3c;padding:9px 12px;margin:8px 0}

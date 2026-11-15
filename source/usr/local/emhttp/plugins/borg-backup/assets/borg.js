@@ -27,12 +27,17 @@
     : st ? `<span class="bb-badge ${BB.esc(st)}">${BB.esc(st)}</span>` : '<span class="bb-muted">never run</span>';
   BB.icon = { container: 'fa-cube', compose: 'fa-cubes', custom: 'fa-folder-open', job: 'fa-archive', test: 'fa-stethoscope', restore: 'fa-history' };
 
+  // URL-encoded on purpose: Unraid 7.4 stalls on multipart/form-data POSTs to plugin PHP files.
+  // Quick calls time out after 60s; borg operations (init, delete, browse) get 30 minutes.
+  const SLOW = ['repo_save', 'repo_refresh', 'archives', 'archive_browse', 'archive_delete', 'repo_key', 'script_test'];
   BB.api = async (action, data = {}) => {
-    const fd = new FormData();
-    fd.append('action', action);
-    fd.append('data', JSON.stringify(data));
-    fd.append('csrf_token', BB.csrf || window.csrf_token || '');
-    const r = await fetch(API, { method: 'POST', body: fd, credentials: 'same-origin' });
+    const body = new URLSearchParams({ action, data: JSON.stringify(data), csrf_token: BB.csrf || window.csrf_token || '' });
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), SLOW.includes(action) ? 1800000 : 60000);
+    let r;
+    try { r = await fetch(API, { method: 'POST', body, credentials: 'same-origin', signal: ac.signal }); }
+    catch (e) { throw new Error(e.name === 'AbortError' ? 'The server did not answer in time (' + action + ')' : 'Network error: ' + e.message); }
+    finally { clearTimeout(timer); }
     let j;
     try { j = await r.json(); } catch (e) { throw new Error('Unexpected server response (HTTP ' + r.status + ')'); }
     if (!j.ok) throw new Error(j.error || 'Request failed');
@@ -147,8 +152,17 @@
     clearTimeout(pollTimer);
     try {
       BB.state = await BB.api('state', { history: 30 });
+      document.querySelectorAll('.bb-api-error').forEach(x => x.remove());
       listeners.forEach(fn => { try { fn(BB.state); } catch (e) { console.error(e); } });
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error(e);
+      // make failures visible instead of leaving the pages blank
+      document.querySelectorAll('.bb-page').forEach(p => {
+        let n = p.previousElementSibling;
+        if (!n || !n.classList.contains('bb-api-error')) { n = document.createElement('div'); n.className = 'bb-note err bb-api-error'; p.before(n); }
+        n.textContent = 'Could not load data from the plugin backend: ' + e.message + ' – retrying…';
+      });
+    }
     pollTimer = setTimeout(BB.refresh, BB.state && BB.state.tasks.length ? 3000 : 20000);
   };
   BB.repoName = id => (BB.state.repos.find(r => r.id === id) || {}).name || '(missing)';
