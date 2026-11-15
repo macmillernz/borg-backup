@@ -2,8 +2,8 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name       "borg-backup">
 <!ENTITY author     "macmillernz">
-<!ENTITY version    "2026.11.16b">
-<!ENTITY pkgMD5     "de3caf32e438eb64fdd8ec30c37c5901">
+<!ENTITY version    "2026.11.16c">
+<!ENTITY pkgMD5     "26f340aeb02ec09913b5e3ea53327eb3">
 <!ENTITY gitURL     "https://raw.githubusercontent.com/macmillernz/borg-backup/main">
 <!ENTITY pluginURL  "&gitURL;/&name;.plg">
 <!ENTITY plgPATH    "/boot/config/plugins/&name;">
@@ -15,13 +15,16 @@
 <PLUGIN name="&name;"
         author="&author;"
         version="&version;"
-        launch="Utilities/BorgBackup"
+        launch="BorgBackup"
         pluginURL="&pluginURL;"
         support="https://github.com/macmillernz/borg-backup/issues"
         icon="archive"
         min="6.12.0">
 
 <CHANGES>
+###2026.11.16c
+- Borg Backup now has its own Backup tab in the top menu, right of Tools (moved from Settings > Utilities).
+
 ###2026.11.16b
 - Wizard: when several selected mounts live in the same app folder (e.g. /mnt/user/appdata/authentik),
   offer to back up that one folder instead, showing anything else the folder contains. Undo is one click.
@@ -87,7 +90,7 @@ chmod 0755 /usr/local/emhttp/plugins/&name;/include/runner.php
 echo ""
 echo "----------------------------------------------------"
 echo " Borg Backup &version; installed ($(/usr/local/bin/borg --version 2>/dev/null))"
-echo " Open it under Utilities > Borg Backup"
+echo " Open it from the Backup tab in the top menu"
 echo "----------------------------------------------------"
 echo ""
 </INLINE>

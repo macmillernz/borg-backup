@@ -1,6 +1,7 @@
-Menu="Utilities"
+Menu="Tasks:95"
 Type="xmenu"
-Title="Borg Backup"
+Title="Backup"
 Icon="archive"
+Code="f187"
 Tabs="true"
 ---

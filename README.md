@@ -4,7 +4,7 @@ A simple, native Unraid plugin for [BorgBackup](https://www.borgbackup.org/).
 No daemon, no extra port, no Python: the UI is plain Unraid pages, schedules use
 Unraid's own cron, and the official Borg standalone binary is installed for you.
 
-**Utilities → Borg Backup** has these tabs:
+The **Backup** tab in the top menu (right of Tools) has these pages:
 
 | Tab | What it does |
 |---|---|
