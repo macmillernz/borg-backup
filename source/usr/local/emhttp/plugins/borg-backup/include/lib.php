@@ -151,7 +151,7 @@ function bb_log_dir(): string {
  */
 function bb_exec(array $cmd, array $env = [], array $opt = [], &$out = null, &$err = null): int {
   $out = ''; $err = '';
-  $base = ['PATH' => BB_PATH, 'HOME' => '/root', 'LANG' => 'C.UTF-8', 'LC_ALL' => 'C.UTF-8'];
+  $base = ['PATH' => BB_PATH, 'HOME' => '/root', 'LANG' => 'C', 'PYTHONUTF8' => '1']; // Unraid has no C.UTF-8 locale; borg (Python) still uses UTF-8 via PYTHONUTF8
   $spec = [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']];
   if (!empty($opt['stdout_file'])) $spec[1] = ['file', $opt['stdout_file'], 'w'];
   $p = @proc_open($cmd, $spec, $pipes, $opt['cwd'] ?? null, array_merge($base, $env));

@@ -2,8 +2,8 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name       "borg-backup">
 <!ENTITY author     "macmillernz">
-<!ENTITY version    "2026.11.16">
-<!ENTITY pkgMD5     "c5ff707985e743aff078f8412f51686e">
+<!ENTITY version    "2026.11.16a">
+<!ENTITY pkgMD5     "f08a7d7b74831783e721296613bb0180">
 <!ENTITY gitURL     "https://raw.githubusercontent.com/macmillernz/borg-backup/main">
 <!ENTITY pluginURL  "&gitURL;/&name;.plg">
 <!ENTITY plgPATH    "/boot/config/plugins/&name;">
@@ -22,6 +22,9 @@
         min="6.12.0">
 
 <CHANGES>
+###2026.11.16a
+- Remove the "setlocale: C.UTF-8" warning from script logs (Unraid has no C.UTF-8 locale).
+
 ###2026.11.16
 - Fix updates not replacing the plugin files (pages stayed blank after updating to 2026.11.15a).
   The installer now verifies the installed version and extracts the package directly if needed.
