@@ -231,6 +231,59 @@
         load(start);
       }
 
+      /* --------- path de-duplication (merge mounts into their app folder) --------- */
+      const under = (p, root) => p !== root && p.startsWith(root === '/' ? '/' : root + '/');
+      // folders that hold many apps/shares and must never be suggested as a merge target
+      const NO_MERGE = new Set(['appdata', 'volumes', 'plugins', 'projects', 'user', 'disks', 'remotes', 'addons', 'mnt', 'boot', 'config', 'cache']);
+      /** Folder a path could be merged into: the app folder below "appdata", otherwise the parent (never shallow/shared roots). */
+      function mergeRoot(p) {
+        const m = p.match(/^(.*\/appdata)\/([^/]+)\/.+$/);
+        if (m) return m[1] + '/' + m[2];
+        if (/^\/var\/lib\/docker\//.test(p)) return null;
+        const parent = p.replace(/\/[^/]+$/, '');
+        if (parent.split('/').length - 1 < 4 || NO_MERGE.has(parent.split('/').pop())) return null;
+        return parent;
+      }
+      /** [[root, [paths...]], ...] for groups of >= 2 ticked paths sharing a merge root. */
+      function mergeSuggestions() {
+        const inc = W.paths.filter(p => p.include);
+        const groups = {};
+        inc.forEach(p => {
+          const r = mergeRoot(p.path);
+          if (r && !inc.some(q => q.path === r || under(r, q.path))) (groups[r] = groups[r] || []).push(p.path);
+        });
+        return Object.entries(groups).filter(([, l]) => l.length >= 2);
+      }
+      /** Ticked path that already contains p (borg would read it anyway). */
+      const coveredBy = p => (W.paths.find(q => q.include && under(p.path, q.path)) || {}).path;
+      const folderInfo = {}; // root -> html describing extra content, loaded once
+
+      function mergeInto(root) {
+        const members = W.paths.filter(p => p.include && under(p.path, root));
+        members.forEach(p => { p.include = false; p.mergedInto = root; });
+        const at = W.paths.indexOf(members[0]);
+        W.paths.splice(at, 0, { path: root, target: `${members.length} mounts`, type: 'bind', origin: 'merged', exists: true, include: true });
+      }
+      function unmerge(i) {
+        const root = W.paths[i].path;
+        W.paths.splice(i, 1);
+        W.paths.forEach(p => { if (p.mergedInto === root) { p.include = true; delete p.mergedInto; } });
+      }
+      /** Show what else the merge folder contains, so merging never silently adds unexpected data. */
+      async function loadFolderInfo(root, el, note) {
+        if (folderInfo[root] !== undefined) return;
+        folderInfo[root] = '';
+        try {
+          const r = await BB.api('browse', { path: root });
+          const covered = new Set(W.paths.filter(p => under(p.path, root)).map(p => p.path.slice(root.length + 1).split('/')[0]));
+          const extra = r.dirs.filter(d => !covered.has(d));
+          folderInfo[root] = extra.length || r.files
+            ? `It also contains ${extra.length ? 'folder' + (extra.length > 1 ? 's' : '') + ' <code>' + extra.slice(0, 8).map(esc).join('</code>, <code>') + '</code>' + (extra.length > 8 ? ' …' : '') : ''}${extra.length && r.files ? ' and ' : ''}${r.files ? r.files + ' file(s)' : ''} that are not mounted – they will be backed up too.`
+            : 'It contains nothing besides these mounts.';
+        } catch (e) { folderInfo[root] = 'Could not read the folder: ' + esc(e.message); }
+        renderPaths(el, note);
+      }
+
       /** Path table with include tickboxes. */
       function renderPaths(el, note) {
         if (!W.paths.length) {
@@ -239,23 +292,40 @@
           bindExtra(el); return;
         }
         const ticked = W.paths.filter(p => p.include).length;
+        const sugg = mergeSuggestions();
         el.innerHTML = `${note ? `<div class="bb-small bb-muted" style="margin:6px 0">${esc(note)}</div>` : ''}
+          ${sugg.map(([root, list]) => `<div class="bb-note bb-row" style="justify-content:space-between">
+            <div style="flex:1;min-width:260px">${list.length} selected paths are inside <code>${esc(root)}</code>. Back up that one folder instead?
+              <div class="bb-small bb-muted">${folderInfo[root] || '<span class="bb-spin"></span> checking folder…'}</div></div>
+            <button data-merge="${esc(root)}"><i class="fa fa-compress"></i> Back up this folder instead</button></div>`).join('')}
           <div class="bb-spread" style="margin:10px 0 4px"><b>Paths to back up</b><span class="bb-small bb-muted">${ticked} of ${W.paths.length} selected
             · <button class="bb-link" data-all="1">all</button><button class="bb-link" data-all="0">none</button></span></div>
           <table class="bb-table"><thead><tr><th style="width:30px"></th><th>Host path</th>${W.type === 'custom' ? '' : '<th>Mounted at</th><th>From</th>'}<th></th></tr></thead><tbody>
-          ${W.paths.map((p, i) => `<tr><td><input type="checkbox" data-i="${i}" ${p.include ? 'checked' : ''}></td>
-            <td class="bb-mono">${esc(p.path)} ${p.exists === false ? '<span class="bb-badge warning">missing</span>' : ''} ${p.fresh ? '<span class="bb-badge running">new</span>' : ''}</td>
+          ${W.paths.map((p, i) => { const cov = p.include && coveredBy(p); return `<tr style="${p.mergedInto ? 'opacity:.6' : ''}"><td><input type="checkbox" data-i="${i}" ${p.include ? 'checked' : ''}></td>
+            <td class="bb-mono">${esc(p.path)} ${p.exists === false ? '<span class="bb-badge warning">missing</span>' : ''} ${p.fresh ? '<span class="bb-badge running">new</span>' : ''}
+              ${p.origin === 'merged' ? '<span class="bb-badge ok">merged</span>' : ''}
+              ${p.mergedInto ? `<div class="bb-small bb-muted">included via <code>${esc(p.mergedInto)}</code></div>` : ''}
+              ${cov ? `<div class="bb-small bb-muted">already inside <code>${esc(cov)}</code> – backed up once</div>` : ''}</td>
             ${W.type === 'custom' ? '' : `<td class="bb-mono bb-small">${esc(p.target || '')} ${p.ro ? '<span class="bb-badge">ro</span>' : ''} ${p.type === 'volume' ? '<span class="bb-badge">volume</span>' : ''}</td><td class="bb-small bb-muted">${esc(p.origin || '')}</td>`}
-            <td class="bb-actions">${['custom', 'manual', 'saved'].includes(p.origin) ? `<button class="bb-link bb-danger" data-rm="${i}">remove</button>` : ''}</td></tr>`).join('')}
+            <td class="bb-actions">${p.origin === 'merged' ? `<button class="bb-link" data-unmerge="${i}">undo merge</button>`
+              : ['custom', 'manual', 'saved'].includes(p.origin) ? `<button class="bb-link bb-danger" data-rm="${i}">remove</button>` : ''}</td></tr>`; }).join('')}
           </tbody></table>
           ${W.type === 'custom' ? '' : extraRow()}
           ${W.type !== 'custom' ? '<div class="bb-small bb-muted">App data folders and Docker volumes are ticked by default; media shares and system paths are not.</div>' : ''}`;
-        el.onchange = e => { if (e.target.dataset.i != null) { W.paths[+e.target.dataset.i].include = e.target.checked; renderPaths(el, note); } };
+        el.onchange = e => {
+          if (e.target.dataset.i == null) return;
+          const p = W.paths[+e.target.dataset.i]; p.include = e.target.checked;
+          if (p.include) delete p.mergedInto;
+          renderPaths(el, note);
+        };
         el.onclick = e => {
-          const a = e.target.closest('[data-all]'); if (a) { W.paths.forEach(p => p.include = a.dataset.all === '1'); renderPaths(el, note); }
+          const a = e.target.closest('[data-all]'); if (a) { W.paths.forEach(p => { p.include = a.dataset.all === '1'; delete p.mergedInto; }); renderPaths(el, note); }
           const r = e.target.closest('[data-rm]'); if (r) { W.paths.splice(+r.dataset.rm, 1); renderPaths(el, note); }
+          const mg = e.target.closest('[data-merge]'); if (mg) { mergeInto(mg.dataset.merge); renderPaths(el, note); }
+          const um = e.target.closest('[data-unmerge]'); if (um) { unmerge(+um.dataset.unmerge); renderPaths(el, note); }
         };
         bindExtra(el);
+        sugg.forEach(([root]) => loadFolderInfo(root, el, note));
       }
       const extraRow = () => `<div class="bb-row" style="margin-top:4px"><input type="text" class="bb-mono" data-extra placeholder="Add another host path (optional)" style="flex:1;min-width:240px"><button data-extra-add>Add</button></div>`;
       function bindExtra(el) {

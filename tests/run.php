@@ -204,6 +204,16 @@ api('job_save', ['job' => array_merge($failPre, ['pre' => ['type' => 'inline', '
 runner('job', $jobId);
 ok(bb_load('history')[0]['status'] === 'warning', 'non-aborting pre script failure -> warning');
 
+echo "Runner: nested paths\n";
+api('job_save', ['job' => array_merge($job, ['id' => $jobId, 'pre' => ['type' => 'none'], 'post' => ['type' => 'none'],
+  'source' => ['type' => 'custom', 'paths' => [['path' => "$root/src/docs/sub", 'include' => true], ['path' => "$root/src/docs", 'include' => true]]]])]);
+$resetCalls();
+runner('job', $jobId);
+$create = array_values(array_filter(explode("\n", $callLog()), fn($l) => strpos($l, 'create ') === 0))[0] ?? '';
+ok(substr_count($create, "$root/src/docs") === 1 && strpos($create, "$root/src/docs/sub") === false, 'nested path skipped, parent kept', $create);
+ok(strpos(file_get_contents(bb_load('history')[0]['log']), "Skipping $root/src/docs/sub (already included via $root/src/docs)") !== false, 'skip is logged');
+api('job_save', ['job' => array_merge($job, ['id' => $jobId])]);
+
 echo "Runner: lock\n";
 bb_dir(BB_RUN . '/tasks');
 $lock = fopen(BB_RUN . "/tasks/job-$jobId.lock", 'c'); flock($lock, LOCK_EX);

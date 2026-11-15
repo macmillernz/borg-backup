@@ -2,8 +2,8 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name       "borg-backup">
 <!ENTITY author     "macmillernz">
-<!ENTITY version    "2026.11.16a">
-<!ENTITY pkgMD5     "f08a7d7b74831783e721296613bb0180">
+<!ENTITY version    "2026.11.16b">
+<!ENTITY pkgMD5     "de3caf32e438eb64fdd8ec30c37c5901">
 <!ENTITY gitURL     "https://raw.githubusercontent.com/macmillernz/borg-backup/main">
 <!ENTITY pluginURL  "&gitURL;/&name;.plg">
 <!ENTITY plgPATH    "/boot/config/plugins/&name;">
@@ -22,6 +22,11 @@
         min="6.12.0">
 
 <CHANGES>
+###2026.11.16b
+- Wizard: when several selected mounts live in the same app folder (e.g. /mnt/user/appdata/authentik),
+  offer to back up that one folder instead, showing anything else the folder contains. Undo is one click.
+- Backups skip a selected path that is already inside another selected path, so nothing is archived twice.
+
 ###2026.11.16a
 - Remove the "setlocale: C.UTF-8" warning from script logs (Unraid has no C.UTF-8 locale).
 

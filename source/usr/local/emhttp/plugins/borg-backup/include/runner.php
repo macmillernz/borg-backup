@@ -187,6 +187,16 @@ function bb_run_job(string $id): void {
       if (!file_exists($p['path'])) { $run->line("WARNING: source path missing, skipped: {$p['path']}"); $status = 'warning'; continue; }
       $paths[] = $p['path'];
     }
+    // a path inside another selected path would be archived twice - keep only the outer one
+    usort($paths, fn($a, $b) => strlen($a) <=> strlen($b));
+    $outer = [];
+    foreach (array_unique($paths) as $p) {
+      foreach ($outer as $o) {
+        if ($o === '/' || strpos($p, rtrim($o, '/') . '/') === 0) { $run->line("Skipping $p (already included via $o)"); continue 2; }
+      }
+      $outer[] = $p;
+    }
+    $paths = $outer;
     if (!$paths) throw new RuntimeException('No existing source paths selected');
 
     $rc = bb_run_script($run, $job['pre'] ?? null, $env + ['BORG_PHASE' => 'pre'], 'Pre-backup script');
