@@ -1,0 +1,8 @@
+Menu="BorgBackup:5"
+Title="Tests"
+Tag="stethoscope"
+Markdown="false"
+---
+<?php include '/usr/local/emhttp/plugins/borg-backup/include/page_head.php'; ?>
+<div class="bb-page" id="bb-tests" data-bb-page="Tests"></div>
+<script>BB.ready(function(){ BB.pages.tests(document.getElementById('bb-tests')); });</script>

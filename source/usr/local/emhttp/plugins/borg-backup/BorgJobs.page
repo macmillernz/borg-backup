@@ -1,0 +1,8 @@
+Menu="BorgBackup:2"
+Title="Jobs"
+Tag="tasks"
+Markdown="false"
+---
+<?php include '/usr/local/emhttp/plugins/borg-backup/include/page_head.php'; ?>
+<div class="bb-page" id="bb-jobs" data-bb-page="Jobs"></div>
+<script>BB.ready(function(){ BB.pages.jobs(document.getElementById('bb-jobs')); });</script>

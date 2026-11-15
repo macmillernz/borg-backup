@@ -1,0 +1,87 @@
+<?xml version='1.0' standalone='yes'?>
+<!DOCTYPE PLUGIN [
+<!ENTITY name       "borg-backup">
+<!ENTITY author     "macmillernz">
+<!ENTITY version    "2026.11.15">
+<!ENTITY pkgMD5     "15af87e984c7c303bd932dfaae2d13fb">
+<!ENTITY gitURL     "https://raw.githubusercontent.com/macmillernz/borg-backup/main">
+<!ENTITY pluginURL  "&gitURL;/&name;.plg">
+<!ENTITY plgPATH    "/boot/config/plugins/&name;">
+<!ENTITY borgVER    "1.4.5">
+<!ENTITY borgSHA256 "c8457f70660064d0f45b38283ab4cc65b342970012013201d3aec713a75898fb">
+<!ENTITY borgURL    "https://github.com/borgbackup/borg/releases/download/&borgVER;/borg-linux-glibc231-x86_64">
+]>
+
+<PLUGIN name="&name;"
+        author="&author;"
+        version="&version;"
+        launch="Utilities/BorgBackup"
+        pluginURL="&pluginURL;"
+        support="https://github.com/macmillernz/borg-backup/issues"
+        icon="archive"
+        min="6.12.0">
+
+<CHANGES>
+###2026.11.15
+- Initial release: Dashboard, Jobs, Repositories, Restore, Tests, Scripts and Settings.
+- Job wizard for containers, compose stacks and custom paths with automatic mount detection.
+</CHANGES>
+
+<!-- Borg standalone binary (official release, checksum verified) -->
+<FILE Name="&plgPATH;/borg-&borgVER;">
+<URL>&borgURL;</URL>
+<SHA256>&borgSHA256;</SHA256>
+</FILE>
+
+<!-- Plugin package -->
+<FILE Name="&plgPATH;/&name;-&version;-x86_64-1.txz" Run="upgradepkg --install-new">
+<URL>&gitURL;/archive/&name;-&version;-x86_64-1.txz</URL>
+<MD5>&pkgMD5;</MD5>
+</FILE>
+
+<!-- Post install -->
+<FILE Run="/bin/bash">
+<INLINE>
+set -e
+PLG="&plgPATH;"
+# install borg unless an identical binary is already there
+if ! cmp -s "$PLG/borg-&borgVER;" /usr/local/bin/borg 2>/dev/null; then
+  install -m 0755 "$PLG/borg-&borgVER;" /usr/local/bin/borg
+fi
+# remove old package/binary versions from the flash drive
+find "$PLG" -maxdepth 1 -name '&name;-*.txz' ! -name '&name;-&version;-x86_64-1.txz' -delete 2>/dev/null || true
+find "$PLG" -maxdepth 1 -name 'borg-[0-9]*' ! -name 'borg-&borgVER;' -delete 2>/dev/null || true
+mkdir -p "$PLG/scripts" "$PLG/ssh" "$PLG/borg"
+chmod 0755 /usr/local/emhttp/plugins/&name;/include/runner.php
+# re-register schedules (the cron file lives on the flash drive)
+[ -f "$PLG/&name;.cron" ] &amp;&amp; /usr/local/sbin/update_cron
+echo ""
+echo "----------------------------------------------------"
+echo " Borg Backup &version; installed ($(/usr/local/bin/borg --version 2>/dev/null))"
+echo " Open it under Utilities > Borg Backup"
+echo "----------------------------------------------------"
+echo ""
+</INLINE>
+</FILE>
+
+<!-- Removal: jobs, repository settings (incl. passphrases), scripts and SSH keys
+     in /boot/config/plugins/borg-backup are kept on purpose. -->
+<FILE Run="/bin/bash" Method="remove">
+<INLINE>
+PLG="&plgPATH;"
+for f in /var/run/borg-backup/tasks/*.json; do
+  [ -f "$f" ] || continue
+  pid=$(sed -n 's/.*"pid":\([0-9]*\).*/\1/p' "$f")
+  [ -n "$pid" ] &amp;&amp; kill "$pid" 2>/dev/null
+done
+rm -f "$PLG/&name;.cron"
+/usr/local/sbin/update_cron
+removepkg &name; 2>/dev/null
+rm -rf /usr/local/emhttp/plugins/&name; /var/run/borg-backup /tmp/borg-backup
+cmp -s /usr/local/bin/borg "$PLG/borg-&borgVER;" 2>/dev/null &amp;&amp; rm -f /usr/local/bin/borg
+rm -f "$PLG"/&name;-*.txz "$PLG"/borg-[0-9]*
+echo "Borg Backup removed. Your configuration in $PLG was kept."
+</INLINE>
+</FILE>
+
+</PLUGIN>

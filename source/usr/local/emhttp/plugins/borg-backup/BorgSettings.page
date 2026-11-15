@@ -1,0 +1,8 @@
+Menu="BorgBackup:7"
+Title="Settings"
+Tag="cog"
+Markdown="false"
+---
+<?php include '/usr/local/emhttp/plugins/borg-backup/include/page_head.php'; ?>
+<div class="bb-page" id="bb-settings" data-bb-page="Settings"></div>
+<script>BB.ready(function(){ BB.pages.settings(document.getElementById('bb-settings')); });</script>

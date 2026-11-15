@@ -1,0 +1,8 @@
+Menu="BorgBackup:4"
+Title="Restore"
+Tag="history"
+Markdown="false"
+---
+<?php include '/usr/local/emhttp/plugins/borg-backup/include/page_head.php'; ?>
+<div class="bb-page" id="bb-restore" data-bb-page="Restore"></div>
+<script>BB.ready(function(){ BB.pages.restore(document.getElementById('bb-restore')); });</script>

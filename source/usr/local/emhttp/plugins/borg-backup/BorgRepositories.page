@@ -1,0 +1,8 @@
+Menu="BorgBackup:3"
+Title="Repositories"
+Tag="database"
+Markdown="false"
+---
+<?php include '/usr/local/emhttp/plugins/borg-backup/include/page_head.php'; ?>
+<div class="bb-page" id="bb-repos" data-bb-page="Repositories"></div>
+<script>BB.ready(function(){ BB.pages.repos(document.getElementById('bb-repos')); });</script>

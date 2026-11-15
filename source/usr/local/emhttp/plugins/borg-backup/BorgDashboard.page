@@ -1,0 +1,8 @@
+Menu="BorgBackup:1"
+Title="Dashboard"
+Tag="tachometer"
+Markdown="false"
+---
+<?php include '/usr/local/emhttp/plugins/borg-backup/include/page_head.php'; ?>
+<div class="bb-page" id="bb-dashboard" data-bb-page="Dashboard"></div>
+<script>BB.ready(function(){ BB.pages.dashboard(document.getElementById('bb-dashboard')); });</script>
