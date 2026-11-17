@@ -403,7 +403,7 @@
         };
         body.querySelector('.bb-seg').onclick = e => {
           const s = e.target.closest('span'); if (!s) return;
-          W.repoMode = s.dataset.v; body.querySelectorAll('.bb-seg span').forEach(x => x.classList.toggle('on', x === s)); render();
+          W.repoMode = s.dataset.v; body.querySelector('.bb-seg').querySelectorAll('span').forEach(x => x.classList.toggle('on', x === s)); render();
         };
         render();
       }

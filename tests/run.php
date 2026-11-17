@@ -289,6 +289,26 @@ ok(!api('stack_mounts', ['project' => 'nope'])['ok'], 'unknown stack refused');
 $r = api('browse', ['path' => "$root/src"]);
 ok($r['ok'] && $r['dirs'] === ['docs'], 'folder browser', $r);
 
+echo "Repository path resolver\n";
+@mkdir("$root/pi/emptydir", 0777, true); @mkdir("$root/pi/Backups"); @mkdir("$root/pi/bar"); @mkdir("$root/pi/.hidden");
+@mkdir("$root/pi/repo"); file_put_contents("$root/pi/repo/config", "[repository]\nversion = 1\n");
+file_put_contents("$root/pi/bar/x.txt", 'x'); file_put_contents("$root/pi/afile", 'x');
+$r = api('path_info', ['path' => "$root/pi/b"]);
+ok($r['ok'] && $r['suggestions'] === ["$root/pi/Backups", "$root/pi/bar"] && $r['state'] === 'missing' && $r['ancestor'] === "$root/pi", 'prefix suggestions (case-insensitive), missing path', $r);
+$r = api('path_info', ['path' => "$root/pi/"]);
+ok(count($r['suggestions']) === 4 && !in_array("$root/pi/.hidden", $r['suggestions']), 'trailing slash lists children, hides dot folders', $r);
+ok(api('path_info', ['path' => "$root/pi/repo"])['state'] === 'borg', 'borg repo detected');
+ok(api('path_info', ['path' => "$root/pi/emptydir"])['state'] === 'empty', 'empty folder detected');
+ok(api('path_info', ['path' => "$root/pi/bar"])['state'] === 'notempty', 'non-empty folder detected');
+ok(api('path_info', ['path' => "$root/pi/afile"])['state'] === 'file', 'file detected');
+$r = api('path_info', ['path' => "$root/pi/new/deeper/repo"]);
+ok($r['ancestor'] === "$root/pi" && isset($r['free']), 'nearest existing parent and free space', $r);
+ok(api('path_info', ['path' => 'relative/x'])['valid'] === false, 'relative path invalid');
+ok(api('path_info', ['path' => '/mnt/user/../etc'])['valid'] === false, 'traversal invalid');
+ok(api('path_info', ['path' => '/mnt/user/newshare/borg'])['where'] === ['type' => 'share', 'name' => 'newshare', 'new' => true], 'new share flagged');
+ok(api('path_info', ['path' => '/root/borg'])['where']['type'] === 'ram', 'path outside /mnt flagged as RAM');
+ok(api('path_info', ['path' => '/mnt/cache/borg'])['where']['type'] === 'pool', 'pool path classified');
+
 echo "Cleanup\n";
 api('job_delete', ['id' => $jobId]);
 ok(api('repo_delete', ['id' => $repoId])['ok'], 'repo delete after job removed');

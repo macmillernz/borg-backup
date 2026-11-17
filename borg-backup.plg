@@ -2,8 +2,8 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name       "borg-backup">
 <!ENTITY author     "macmillernz">
-<!ENTITY version    "2026.11.16d">
-<!ENTITY pkgMD5     "064c7faabef7b25fff05f42cc23d5c2a">
+<!ENTITY version    "2026.11.17">
+<!ENTITY pkgMD5     "f2d9bd9f2fc64993dc2686a481c6321f">
 <!ENTITY gitURL     "https://raw.githubusercontent.com/macmillernz/borg-backup/main">
 <!ENTITY pluginURL  "&gitURL;/&name;.plg">
 <!ENTITY plgPATH    "/boot/config/plugins/&name;">
@@ -22,6 +22,12 @@
         min="6.12.0">
 
 <CHANGES>
+###2026.11.17
+- New repository: the location is checked as you type. Folder suggestions (arrow keys + Tab/Enter),
+  and a status line saying whether it is an existing Borg repository, an empty or new folder, the free
+  space, and a warning for paths in RAM or on the flash drive. New vs. existing is detected automatically
+  for local paths.
+
 ###2026.11.16d
 - The top-menu entry is now labelled exactly "Backup" (it showed "BorgBackup"); the page lives at /Backup.
 

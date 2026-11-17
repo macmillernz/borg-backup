@@ -197,6 +197,67 @@
     };
   };
 
+  /* --------------------------- path resolver --------------------------- */
+  /** Live folder suggestions and a status line for a repository path input. */
+  BB.pathResolver = (input, list, status, opt = {}) => {
+    let seq = 0, timer = null, items = [], sel = -1;
+    const active = opt.active || (() => true);
+    const hide = () => { list.hidden = true; items = []; sel = -1; };
+    const msg = (cls, html) => { status.className = 'bb-pathstat ' + cls; status.innerHTML = html; };
+    const showList = () => {
+      if (!items.length || document.activeElement !== input) return hide();
+      list.innerHTML = items.map((p, i) => { const cut = p.lastIndexOf('/') + 1;
+        return `<div data-i="${i}" class="${i === sel ? 'on' : ''}"><i class="fa fa-folder-o"></i> <span class="bb-muted">${BB.esc(p.slice(0, cut))}</span>${BB.esc(p.slice(cut))}</div>`; }).join('');
+      list.hidden = false;
+      const on = list.querySelector('.on'); if (on) on.scrollIntoView({ block: 'nearest' });
+    };
+    const pick = i => { input.value = items[i] + '/'; hide(); input.focus(); lookup(0); };
+    const render = r => {
+      items = r.suggestions || []; sel = -1; showList();
+      const free = r.free != null ? ` · ${BB.size(r.free)} free` : '';
+      const w = r.where || {};
+      if (w.type === 'pool' && w.new || (r.state === 'missing' && r.ancestor === '/mnt'))
+        return msg('err', `<code>/mnt/${BB.esc(w.name || '')}</code> is not a disk or pool on this server.`), opt.onState && opt.onState('bad');
+      const shareNote = w.type === 'share' && w.new ? ` A new share <b>${BB.esc(w.name)}</b> is created.` : '';
+      const loc = { ram: ' <b>Warning:</b> this is not on the array, a pool or a device – it is in RAM and is lost on reboot.',
+        flash: ' <b>Warning:</b> this is on the USB flash drive, which is small and wears out.' }[w.type] || '';
+      const warn = loc ? 'warn' : 'ok';
+      switch (r.state) {
+        case 'borg': msg(warn, `<i class="fa fa-check-circle"></i> Existing Borg repository – it will be added. Enter its passphrase below.${free}${loc}`); break;
+        case 'empty': msg(warn, `<i class="fa fa-check-circle"></i> Empty folder – a new repository is created here.${free}${loc}`); break;
+        case 'missing': msg(warn, `<i class="fa fa-plus-circle"></i> New folder – created inside <code>${BB.esc(r.ancestor)}</code>.${shareNote}${free}${loc}`); break;
+        case 'file': msg('err', '<i class="fa fa-times-circle"></i> This is a file, not a folder.'); break;
+        case 'notempty': msg('err', `<i class="fa fa-times-circle"></i> This folder has other files and is not a Borg repository. Use a new or empty folder, e.g. <a href="#" data-use="${BB.esc(r.path.replace(/\/$/, ''))}/borg">${BB.esc(r.path.replace(/\/$/, ''))}/borg</a>.`); break;
+      }
+      if (opt.onState) opt.onState(r.state);
+    };
+    const lookup = (delay = 250) => {
+      clearTimeout(timer);
+      const v = input.value.trim(), my = ++seq;
+      if (!active()) { hide(); return; }
+      if (!v) { hide(); msg('', ''); if (opt.onState) opt.onState(''); return; }
+      if (v[0] !== '/') { hide(); msg('err', 'Enter a full path starting with <code>/</code>, e.g. <code>/mnt/user/backups/borg</code>.'); return; }
+      timer = setTimeout(async () => {
+        let r; try { r = await BB.api('path_info', { path: v }); } catch (e) { if (my === seq) msg('', ''); return; }
+        if (my !== seq) return;            // a newer keystroke won
+        if (!r.valid) { hide(); msg('err', 'This path is not valid.'); return; }
+        render(r);
+      }, delay);
+    };
+    input.addEventListener('input', () => lookup());
+    input.addEventListener('focus', () => { if (input.value.trim()) lookup(0); });
+    input.addEventListener('blur', () => setTimeout(hide, 150));
+    input.addEventListener('keydown', e => {
+      if (list.hidden || !items.length) return;
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); sel = (sel + (e.key === 'ArrowDown' ? 1 : -1) + items.length + 1) % (items.length + 1); if (sel === items.length) sel = -1; showList(); }
+      else if ((e.key === 'Tab' || e.key === 'Enter') && (sel >= 0 || items.length === 1)) { e.preventDefault(); pick(sel >= 0 ? sel : 0); }
+      else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); hide(); }
+    });
+    list.addEventListener('mousedown', e => { const d = e.target.closest('[data-i]'); if (d) { e.preventDefault(); pick(+d.dataset.i); } });
+    status.addEventListener('click', e => { const a = e.target.closest('[data-use]'); if (a) { e.preventDefault(); input.value = a.dataset.use; input.focus(); lookup(0); } });
+    if (input.value.trim()) lookup(0);
+  };
+
   /* ------------------------------ repo form ---------------------------- */
   /** Repository form (used by Repositories page and the wizard). Returns {get()}. */
   BB.repoForm = (el, repo) => {
@@ -204,12 +265,13 @@
     repo = Object.assign({ name: '', location: '', encryption: 'repokey-blake2', remote_path: '', ssh_key: '', mode: 'new' }, repo || {});
     const remote = /^(ssh:\/\/|[^/]+@[^/]+:)/.test(repo.location);
     el.innerHTML = `
-      ${editing ? '' : `<div class="bb-seg" data-g="mode"><span data-v="new" class="on">Create new repository</span><span data-v="existing">Use existing repository</span></div>`}
       <div class="bb-form">
         <label>Name</label><input type="text" data-k="name" value="${BB.esc(repo.name)}" placeholder="e.g. Local array, Hetzner Storage Box">
         <label>Location</label><div>${editing ? `<code>${BB.esc(repo.location)}</code>` : `
           <div class="bb-seg" data-g="where"><span data-v="local" class="${remote ? '' : 'on'}">Local path</span><span data-v="ssh" class="${remote ? 'on' : ''}">Remote (SSH)</span></div>
-          <input type="text" data-k="location" class="bb-mono" value="${BB.esc(repo.location)}">`}</div>
+          <div class="bb-acwrap"><input type="text" data-k="location" class="bb-mono" value="${BB.esc(repo.location)}" autocomplete="off" spellcheck="false"><div class="bb-ac" hidden></div></div>
+          <div class="bb-pathstat" data-status></div>
+          <div class="bb-seg" data-g="mode" style="margin-top:6px"><span data-v="new" class="on">Create it (borg init)</span><span data-v="existing">It already exists</span></div>`}</div>
         <div class="bb-help" data-help="loc"></div>
         ${editing ? '' : `<label data-enc>Encryption</label><select data-k="encryption" data-enc>
           <option value="repokey-blake2">repokey-blake2 (recommended – key stored in repo)</option>
@@ -224,7 +286,11 @@
       </div>`;
     const q = s => el.querySelector(s);
     const state = { mode: 'new', where: remote ? 'ssh' : 'local' };
+    const setSeg = (g, v) => { state[g] = v; el.querySelectorAll(`[data-g=${g}] span`).forEach(x => x.classList.toggle('on', x.dataset.v === v)); };
     const upd = () => {
+      // local paths are checked as you type, so new/existing is detected; SSH needs the choice
+      const modeSeg = q('[data-g=mode]'); if (modeSeg) modeSeg.style.display = state.where === 'ssh' ? '' : 'none';
+      const st = q('[data-status]'); if (st && state.where === 'ssh') st.innerHTML = '';
       el.querySelectorAll('[data-confirm]').forEach(x => x.style.display = (!editing && state.mode === 'new') ? '' : 'none');
       el.querySelectorAll('[data-enc]').forEach(x => x.style.display = state.mode === 'new' ? '' : 'none');
       const loc = q('[data-k=location]');
@@ -237,9 +303,14 @@
       const s = e.target.closest('span'); if (!s) return;
       seg.querySelectorAll('span').forEach(x => x.classList.toggle('on', x === s));
       state[seg.dataset.g] = s.dataset.v; upd();
+      if (seg.dataset.g === 'where' && s.dataset.v === 'local') q('[data-k=location]').dispatchEvent(new Event('input'));
     });
     if (!editing) q('[data-k=encryption]').value = repo.encryption;
     upd();
+    if (!editing) BB.pathResolver(q('[data-k=location]'), q('.bb-ac'), q('[data-status]'), {
+      active: () => state.where === 'local',
+      onState: s => { setSeg('mode', s === 'borg' ? 'existing' : 'new'); upd(); }
+    });
     return {
       get() {
         const v = k => (q(`[data-k=${k}]`) || {}).value || '';

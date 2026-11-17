@@ -165,6 +165,60 @@ case 'browse':
   natcasesort($dirs);
   out(['path' => $path, 'parent' => $path === '/' ? null : (dirname($path) ?: '/'), 'dirs' => array_values($dirs), 'files' => $files]);
 
+case 'path_info':
+  // Resolves a (partly typed) repository location: folder suggestions plus what is there now.
+  $p = (string)($in['path'] ?? '');
+  if ($p === '' || $p[0] !== '/' || strpos($p, "\0") !== false || preg_match('#(^|/)\.\.(/|$)#', $p)) out(['valid' => false]);
+  $path = rtrim($p, '/') ?: '/';
+  $trail = substr($p, -1) === '/';
+  $dir = $trail ? $path : (dirname($path) ?: '/');
+  $prefix = $trail ? '' : basename($path);
+  $sugg = [];
+  if (is_dir($dir)) foreach (@scandir($dir) ?: [] as $e) {
+    if ($e === '.' || $e === '..' || ($e[0] === '.' && ($prefix === '' || $prefix[0] !== '.'))) continue;
+    if ($prefix !== '' && (stripos($e, $prefix) !== 0 || $e === $prefix)) continue;
+    if (is_dir("$dir/$e")) $sugg[] = rtrim($dir, '/') . "/$e";
+  }
+  natcasesort($sugg);
+  $info = ['valid' => true, 'path' => $path, 'suggestions' => array_slice(array_values($sugg), 0, 30)];
+  if (is_dir($path)) {
+    $cfg = @file_get_contents("$path/config", false, null, 0, 256);
+    if ($cfg !== false && strpos($cfg, '[repository]') !== false) $info['state'] = 'borg';
+    else {
+      $empty = true;
+      if ($h = @opendir($path)) {
+        while (($e = readdir($h)) !== false) if ($e !== '.' && $e !== '..') { $empty = false; break; }
+        closedir($h);
+      }
+      $info['state'] = $empty ? 'empty' : 'notempty';
+    }
+    $base = $path;
+  } elseif (file_exists($path)) {
+    $info['state'] = 'file';
+    $base = dirname($path);
+  } else {
+    $info['state'] = 'missing';
+    $base = dirname($path);
+    while ($base !== '/' && !is_dir($base)) $base = dirname($base);
+    $info['ancestor'] = $base;
+  }
+  $free = @disk_free_space($base);
+  if ($free !== false) $info['free'] = $free;
+  // where it lives on Unraid
+  $seg = explode('/', ltrim($path, '/'));
+  if ($seg[0] === 'mnt' && in_array($seg[1] ?? '', ['user', 'user0'], true) && ($seg[2] ?? '') !== '') {
+    $info['where'] = ['type' => 'share', 'name' => $seg[2], 'new' => !is_dir("/mnt/{$seg[1]}/{$seg[2]}")];
+  } elseif ($seg[0] === 'mnt' && in_array($seg[1] ?? '', ['disks', 'remotes', 'addons'], true)) {
+    $info['where'] = ['type' => $seg[1] === 'disks' ? 'unassigned' : 'remote', 'name' => $seg[2] ?? ''];
+  } elseif ($seg[0] === 'mnt' && ($seg[1] ?? '') !== '' && ($seg[1] ?? '') !== 'user' && ($seg[1] ?? '') !== 'user0') {
+    $info['where'] = ['type' => preg_match('/^disk\d+$/', $seg[1]) ? 'disk' : 'pool', 'name' => $seg[1], 'new' => !is_dir("/mnt/{$seg[1]}")];
+  } elseif ($seg[0] === 'boot') {
+    $info['where'] = ['type' => 'flash'];
+  } elseif ($path !== '/mnt' && $path !== '/mnt/user' && $path !== '/mnt/user0') {
+    $info['where'] = ['type' => 'ram'];
+  }
+  out($info);
+
 /* ------------------------------ jobs ----------------------------- */
 case 'job_save':
   $j = $in['job'] ?? [];
