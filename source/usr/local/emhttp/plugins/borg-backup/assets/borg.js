@@ -251,6 +251,11 @@
       if (list.hidden || !items.length) return;
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); sel = (sel + (e.key === 'ArrowDown' ? 1 : -1) + items.length + 1) % (items.length + 1); if (sel === items.length) sel = -1; showList(); }
       else if ((e.key === 'Tab' || e.key === 'Enter') && (sel >= 0 || items.length === 1)) { e.preventDefault(); pick(sel >= 0 ? sel : 0); }
+      else if (e.key === 'Tab') {
+        // several matches: complete their common part, like a shell
+        let c = items[0]; for (const p of items) while (p.toLowerCase().indexOf(c.toLowerCase()) !== 0) c = c.slice(0, -1);
+        if (c.length > input.value.length) { e.preventDefault(); input.value = c; lookup(0); }
+      }
       else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); hide(); }
     });
     list.addEventListener('mousedown', e => { const d = e.target.closest('[data-i]'); if (d) { e.preventDefault(); pick(+d.dataset.i); } });
@@ -297,7 +302,7 @@
       if (loc) loc.placeholder = state.where === 'ssh' ? 'ssh://u123456@u123456.your-storagebox.de:23/./borg/unraid' : '/mnt/user/backups/borg';
       q('[data-help=loc]').innerHTML = editing ? 'The location of an existing repository cannot be changed.' : state.where === 'ssh'
         ? 'Use <code>ssh://user@host:port/path</code> or <code>user@host:path</code>. Add the public key from Settings to the remote <code>authorized_keys</code> first.'
-        : 'A folder on the array, a pool or an unassigned device. For new repositories it must not exist yet or be empty.';
+        : 'A folder on the array, a pool or an unassigned device: a new or empty folder, or an existing Borg repository.';
     };
     el.querySelectorAll('.bb-seg').forEach(seg => seg.onclick = e => {
       const s = e.target.closest('span'); if (!s) return;
